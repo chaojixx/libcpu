@@ -197,6 +197,9 @@ struct se_libcpu_interface_t {
         void (*tcg_custom_instruction_handler)(uint64_t arg);
         void (*tcg_emit_custom_instruction)(uint64_t arg);
 
+        
+        void (*tcg_make_peripheral_symbolic)(uintptr_t address, unsigned size);
+
         void (*on_translate_soft_interrupt_start)(void *context, struct TranslationBlock *tb, uint64_t pc,
                                                   unsigned vector);
 
