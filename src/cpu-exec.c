@@ -80,17 +80,9 @@ static TranslationBlock *tb_find_slow(CPUArchState *env, target_ulong pc, target
 
     tb_invalidated_flag = 0;
     DPRINTF("   find translated block using physical mappings \n");
-    /* find translated block using physical mappings */
-    //printf("tbpc=0x%x\n", pc);
-   // if(pc==0x1f70)
-    //    printf("interrupt\n");
 
-/*     if (pc >= 0xfffffff0 && IS_M(env)) { */
-        /* We always get here via a jump, so know we are not in a */
-           /* conditional execution block.  */
-        /* ptb1 = NULL; */
-        /* goto not_found; */
-    /* } */
+
+
     phys_pc = get_page_addr_code(env, pc);
     phys_page1 = phys_pc & TARGET_PAGE_MASK;
     h = tb_phys_hash_func(phys_pc);
@@ -151,7 +143,7 @@ static inline TranslationBlock *tb_find_fast(CPUArchState *env) {
         tb_flush(env);
     }
 #endif
-    printf("armv7mpc=0x%x\n",env->regs[15]);
+    printf("tb_find_fast: armv7m pc=0x%x\n",env->regs[15]);
 //    if(env->regs[15]==0x2828)
 //        printf("interrupt\n");
 
@@ -208,7 +200,6 @@ static uintptr_t fetch_and_run_tb(uintptr_t prev_tb, CPUArchState *env) {
 
 
     TranslationBlock *tb = tb_find_fast(env);
-    DPRINTF("   TB has found \n");
     /* Note: we do it here to avoid a gcc bug on Mac OS X when
        doing it in tb_find_slow */
     if (tb_invalidated_flag) {

@@ -137,7 +137,6 @@ DATA_TYPE glue(glue(io_read, SUFFIX), MMUSUFFIX)(ENV_PARAM target_phys_addr_t ph
                                                  void *retaddr) {
     DATA_TYPE res;
     const struct MemoryDescOps *ops = phys_get_ops(physaddr);
-    unsigned size;
     physaddr = (physaddr & TARGET_PAGE_MASK) + addr;
 
 #if defined(CONFIG_SYMBEX) && defined(CONFIG_SYMBEX_MP)
@@ -169,26 +168,18 @@ DATA_TYPE glue(glue(io_read, SUFFIX), MMUSUFFIX)(ENV_PARAM target_phys_addr_t ph
     env->mem_io_pc = (uintptr_t) retaddr;
 
     SE_SET_MEM_IO_VADDR(env, addr, 0);
+
 #if SHIFT <= 2
     res = ops->read(physaddr, 1 << SHIFT);
-    size=1<<SHIFT;
 #else
-#ifdef TARGET_WORDS_BIGENDIAN
-    res = ops->read(physaddr, 4) << 32;
-    res |= ops->read(physaddr + 4, 4);
-    size=8;
-#else
-    res = ops->read(physaddr, 4);
-    res |= ops->read(physaddr + 4, 4) << 32;
-    size=8;
-#endif
+    #ifdef TARGET_WORDS_BIGENDIAN
+        res = ops->read(physaddr, 4) << 32;
+        res |= ops->read(physaddr + 4, 4);
+    #else
+        res = ops->read(physaddr, 4);
+        res |= ops->read(physaddr + 4, 4) << 32;
+    #endif
 #endif /* SHIFT > 2 */
-#ifdef CONFIG_SYMBEX
-    //io read peripherals as a symbol range>0x40000000
-    if (physaddr>=0x40000000) {
-        g_sqi.events.tcg_make_peripheral_symbolic(physaddr, size);
-    } 
-#endif 
     return res;
 }
 
@@ -295,6 +286,22 @@ redo:
 #ifdef CONFIG_SYMBEX
             env->se_tlb_current = tlb_entry;
 #endif
+
+#ifdef CONFIG_SYMBEX
+            unsigned size;
+    #if SHIFT <= 2
+            size=1<<SHIFT;
+    #else
+            size=8;
+    #endif
+            //io read peripherals as a symbol range>0x40000000
+            target_phys_addr_t physaddr;
+            physaddr = (ioaddr & TARGET_PAGE_MASK) + addr;
+            if (physaddr>=0x40000000) {
+                g_sqi.events.tcg_make_peripheral_symbolic(0x3000,1);
+                g_sqi.exec.switch_to_symbolic(retaddr);
+            }    
+#endif 
             res = glue(glue(io_read_chk, SUFFIX), MMUSUFFIX)(ENV_VAR ioaddr, addr, retaddr);
 
             INSTR_AFTER_MEMORY_ACCESS(addr, res, MEM_TRACE_FLAG_IO, retaddr);
