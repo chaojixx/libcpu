@@ -789,12 +789,7 @@ static inline void store_reg_from_load(CPUARMState *env, DisasContext *s,
 {
     if (reg == 15 && ENABLE_ARCH_5) {
         gen_bx(s, var);
-        if(env->v7m.exception != 0&&IS_M(env)){
-            printf("interrupt pc=0x%x\n", env->regs[15]);
-            printf("interrupt lr=0x%x\n", env->regs[14]);
-            gen_exception(EXCP_EXCEPTION_EXIT);
-            s->is_jmp=DISAS_UPDATE;
-        }
+
     } else {
         store_reg(s, reg, var);
     }
@@ -9184,6 +9179,7 @@ static void disas_thumb_insn(CPUARMState *env, DisasContext *s)
 {
     uint32_t val, insn, op, rm, rn, rd, shift, cond;
     int32_t offset;
+    uint32_t k, count;  //only used for counting the number of reglist when poping with pc  
     int i;
     TCGv tmp;
     TCGv tmp2;
@@ -9197,7 +9193,7 @@ static void disas_thumb_insn(CPUARMState *env, DisasContext *s)
           s->condjmp = 1;
         }
     }
-    //printf("tbpc=0x%x\n", s->pc);
+
     lduw_code(s->pc);
 
     insn = arm_lduw_code(s->pc, s->bswap_code);
@@ -9699,6 +9695,20 @@ static void disas_thumb_insn(CPUARMState *env, DisasContext *s)
             /* set the new PC value */
             if ((insn & 0x0900) == 0x0900) {
                 store_reg_from_load(env, s, 15, tmp);
+                // To find how many other regs pop with pc
+                if(env->v7m.exception != 0&&IS_M(env)){
+                    count=0;
+                    for(k=0;k<8;k++){
+                        if((insn & (1 << k)) != 0)
+                        count++;  
+                    }
+                    val = ldl_phys(env->regs[13]+count*4);
+                    // if pop pc is EXC_RETURN invode interrupt exit.
+                    if(val>0xffff0000){
+                        gen_exception(EXCP_EXCEPTION_EXIT);
+                        s->is_jmp=DISAS_UPDATE;
+                    }
+                }
             }
             break;
 
@@ -9994,13 +10004,14 @@ static inline void gen_intermediate_code_internal(CPUARMState *env,
             break;
         }
 #else
-        if (dc->pc >= 0xfffffff0 && IS_M(env)) {
-            /* We always get here via a jump, so know we are not in a
-               conditional execution block.  */
-            gen_exception(EXCP_EXCEPTION_EXIT);
-            dc->is_jmp = DISAS_UPDATE;
-            break;
-        }
+         /* We move this judgement to the previous round by using 
+          * function gen_exception(EXCP_EXCEPTION_EXIT) as same as Qemu 3.0   */      
+        /*  if (dc->pc >= 0xfffffff0 && IS_M(env)) {
+             gen_exception(EXCP_EXCEPTION_EXIT); 
+             dc->is_jmp = DISAS_UPDATE; 
+             break; 
+         }
+        */
 #endif
 
         if (unlikely(!QTAILQ_EMPTY(&env->breakpoints))) {
