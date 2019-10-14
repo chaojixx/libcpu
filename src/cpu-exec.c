@@ -26,7 +26,7 @@
 
 #define barrier() asm volatile("" ::: "memory")
 
-#define DEBUG_EXEC
+//#define DEBUG_EXEC
 
 #ifdef DEBUG_EXEC
 #define DPRINTF(...) printf(__VA_ARGS__)
@@ -80,7 +80,6 @@ static TranslationBlock *tb_find_slow(CPUArchState *env, target_ulong pc, target
 
     tb_invalidated_flag = 0;
     DPRINTF("   find translated block using physical mappings \n");
-
 
 
     phys_pc = get_page_addr_code(env, pc);
@@ -143,9 +142,8 @@ static inline TranslationBlock *tb_find_fast(CPUArchState *env) {
         tb_flush(env);
     }
 #endif
-    printf("tb_find_fast: armv7m pc=0x%x\n",env->regs[15]);
-//    if(env->regs[15]==0x2828)
-//        printf("interrupt\n");
+    
+    DPRINTF("Current pc=0x%x: \n",env->regs[15]);
 
     /* we record a subset of the CPU state. It will
        always be the same before a given translated block
@@ -378,8 +376,12 @@ static bool process_interrupt_request(CPUArchState *env) {
        the stack if an interrupt occurred at the wrong time.
        We avoid this by disabling interrupts when
        pc contains a magic address.  */
+
+    // in case lower prioriy interrupt so add armv7m_nvic_can_take_pending_exception
+    // in case basepri has not been synced  so add exit code condition
     if (interrupt_request & CPU_INTERRUPT_HARD &&
-        ((IS_M(env) && env->regs[15] < 0xfffffff0) || !(env->uncached_cpsr & CPSR_I))) {
+        ((IS_M(env) && env->regs[15] < 0xfffffff0) || !(env->uncached_cpsr & CPSR_I)) &&
+         (armv7m_nvic_can_take_pending_exception(env->nvic)) && (env->kvm_exit_code == 0)) {
         env->exception_index = EXCP_IRQ;
         do_interrupt(env);
         has_interrupt = true;
