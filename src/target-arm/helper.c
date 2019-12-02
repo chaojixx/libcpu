@@ -27,6 +27,14 @@
 #include "host-utils.h"
 #include "loader.h"
 
+#define DEBUG_HELPER
+
+#ifdef DEBUG_HELPER
+#define HPRINTF(...) printf(__VA_ARGS__)
+#else
+#define HPRINTF(...)
+#endif
+
 int semihosting_enabled = 0;
 int smp_cpus = 1;
 
@@ -691,6 +699,8 @@ static void switch_v7m_sp(CPUARMState *env, int process) {
         env->v7m.other_sp = env->regs[13];
         env->regs[13] = tmp;
         env->v7m.current_sp = process;
+    } else {
+        HPRINTF(" already in handle mode current_sp = 0x%x, other_sp = 0x%x", env->v7m.current_sp, env->v7m.other_sp);
     }
 }
 
@@ -711,6 +721,7 @@ static void do_v7m_exception_exit(CPUARMState *env) {
     env->regs[3] = v7m_pop(env);
     env->regs[12] = v7m_pop(env);
     env->regs[14] = v7m_pop(env);
+    HPRINTF(" interrupt exit r13 = 0x%x r15 = 0x%x\n", env->regs[13], env->regs[15]);
     env->regs[15] = v7m_pop(env);
     xpsr = v7m_pop(env);
     xpsr_write(env, xpsr, 0xfffffdff);
@@ -737,7 +748,7 @@ void do_interrupt_v7m(CPUARMState *env) {
         lr |= 4;
     if (env->v7m.exception == 0)
         lr |= 8;
-    // printf("interreput = 0x%x\n",env->exception_index);
+    // HPRINTF("interreput = 0x%x\n",env->exception_index);
     /* For exceptions we just mark as pending on the NVIC, and let that
        handle it.  */
     switch (env->exception_index) {
@@ -784,8 +795,10 @@ void do_interrupt_v7m(CPUARMState *env) {
         env->regs[13] -= 4;
         xpsr |= 0x200;
     }
+
     v7m_push(env, xpsr);
     v7m_push(env, env->regs[15]);
+    HPRINTF(" interrupt r13 = 0x%x r15 = 0x%x\n", env->regs[13], env->regs[15]);
     v7m_push(env, env->regs[14]);
     v7m_push(env, env->regs[12]);
     v7m_push(env, env->regs[3]);
@@ -805,6 +818,7 @@ void do_interrupt_v7m(CPUARMState *env) {
     env->regs[14] = lr;
     addr = ldl_phys(env->v7m.vecbase + env->v7m.exception * 4);
     env->regs[15] = addr & 0xfffffffe;
+    HPRINTF("addr = %x vecbase = %d exce = %d\n", addr, env->v7m.vecbase, env->v7m.exception);
     env->thumb = addr & 1;
 }
 
@@ -2258,6 +2272,9 @@ void HELPER(v7m_msr)(CPUARMState *env, uint32_t reg, uint32_t val) {
         case 17: /* BASEPRI */
             env->v7m.basepri = val & 0xff;
             env->kvm_exit_code = 1;
+/* #ifdef CONFIG_SYMBEX */
+            /* WR_cpu(env, v7m.basepri, val & 0xff); */
+/* #endif */
             cpu_exit(env);
             break;
         case 18: /* BASEPRI_MAX */
@@ -2265,7 +2282,10 @@ void HELPER(v7m_msr)(CPUARMState *env, uint32_t reg, uint32_t val) {
             if (val != 0 && (val < env->v7m.basepri || env->v7m.basepri == 0)) {
                 env->v7m.basepri = val;
                 env->kvm_exit_code = 1;
-                cpu_exit(env);
+/* #ifdef CONFIG_SYMBEX */
+            /* WR_cpu(env, v7m.basepri, val & 0xff); */
+/* #endif */
+            cpu_exit(env);
             }
             break;
         case 19: /* FAULTMASK */

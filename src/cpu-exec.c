@@ -26,7 +26,7 @@
 
 #define barrier() asm volatile("" ::: "memory")
 
-//#define DEBUG_EXEC
+#define DEBUG_EXEC
 
 #ifdef DEBUG_EXEC
 #define DPRINTF(...) printf(__VA_ARGS__)
@@ -136,11 +136,10 @@ static inline TranslationBlock *tb_find_fast(CPUArchState *env) {
 #ifdef CONFIG_SYMBEX
     if (tb_invalidate_before_fetch) {
         tb_invalidate_before_fetch = 0;
+        DPRINTF("tb will flush pc = 0x%x\n", env->regs[15]);
         tb_flush(env);
     }
 #endif
-
-    DPRINTF("Current pc=0x%x: \n", env->regs[15]);
 
     /* we record a subset of the CPU state. It will
        always be the same before a given translated block
@@ -194,7 +193,6 @@ static uintptr_t fetch_and_run_tb(uintptr_t prev_tb, CPUArchState *env) {
 #endif
 
     TranslationBlock *tb = tb_find_fast(env);
-    DPRINTF("   TB has found \n");
     /* Note: we do it here to avoid a gcc bug on Mac OS X when
        doing it in tb_find_slow */
     if (tb_invalidated_flag) {
@@ -233,6 +231,7 @@ static uintptr_t fetch_and_run_tb(uintptr_t prev_tb, CPUArchState *env) {
     }
 
     tc_ptr = tb->tc_ptr;
+    DPRINTF("Trace 0x%08lx, tb pc =0x%x \n", (long) tb->tc_ptr, tb->pc);
 #ifdef ENABLE_PRECISE_EXCEPTION_DEBUGGING
     assert(env->eip == env->precise_eip);
 #endif
@@ -245,6 +244,7 @@ static uintptr_t fetch_and_run_tb(uintptr_t prev_tb, CPUArchState *env) {
         **g_sqi.mode.running_exception_emulation_code = 0;
         next_tb = tcg_libcpu_tb_exec(env, tc_ptr);
     } else {
+        DPRINTF(" symbolic execution loop running \n");
         next_tb = g_sqi.exec.tb_exec(env, tb);
     }
     env->se_current_tb = NULL;
@@ -381,12 +381,15 @@ static bool process_interrupt_request(CPUArchState *env) {
 
     // in case lower prioriy interrupt so add armv7m_nvic_can_take_pending_exception
     // in case basepri has not been synced  so add exit code condition
-    if (interrupt_request & CPU_INTERRUPT_HARD &&
-        ((IS_M(env) && env->regs[15] < 0xfffffff0) || !(env->uncached_cpsr & CPSR_I)) &&
-        (armv7m_nvic_can_take_pending_exception(env->nvic)) && (env->kvm_exit_code == 0)) {
-        env->exception_index = EXCP_IRQ;
-        do_interrupt(env);
-        has_interrupt = true;
+    if ((interrupt_request & CPU_INTERRUPT_HARD) &&
+        ((IS_M(env) && env->regs[15] < 0xfffffff0) || !(env->uncached_cpsr & CPSR_I))) {
+        if ((armv7m_nvic_can_take_pending_exception(env->nvic)) && (env->kvm_exit_code == 0)) {
+            env->exception_index = EXCP_IRQ;
+            do_interrupt(env);
+            has_interrupt = true;
+        } else {
+            DPRINTF("cpu basepri = %d take_exc = %d kvm_exit_code = %d\n", env->v7m.basepri, armv7m_nvic_can_take_pending_exception(env->nvic), env->kvm_exit_code);
+        }
     }
 #endif
     /* Don't use the cached interrupt_request value,

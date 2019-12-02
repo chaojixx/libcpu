@@ -37,6 +37,14 @@
 #include <cpu/se_libcpu.h>
 #endif
 
+#define DEBUG_TS
+
+#ifdef DEBUG_TS
+#define TPRINTF(...) printf(__VA_ARGS__)
+#else
+#define TPRINTF(...)
+#endif
+
 /* code generation context */
 TCGContext tcg_ctx;
 
@@ -375,6 +383,7 @@ int cpu_restore_state(TranslationBlock *tb, CPUArchState *env, uintptr_t searche
 
         if (((uintptr_t) tb->tc_ptr + p->host_pc_increment) <= searched_pc) {
             /* Found the guest program counter at the time of exception */
+            TPRINTF("!!Should not be here tb->pc=0x%x\n", tb->pc);
             se_restore_state_to_opc(env, tb, tb->pc + p->guest_pc_increment, p->cc_op, next_pc);
             env->restored_instruction_size = p->guest_inst_size;
 
