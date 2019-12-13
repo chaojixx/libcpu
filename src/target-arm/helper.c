@@ -433,7 +433,6 @@ CPUARMState *cpu_arm_init(const char *cpu_model) {
     }
 
     env->cp15.c0_cpuid = id;
-
     //    if (arm_feature(env, ARM_FEATURE_NEON)) {
     //        gdb_register_coprocessor(env, vfp_gdb_get_reg, vfp_gdb_set_reg, 51, "arm-neon.xml", 0);
     //    } else if (arm_feature(env, ARM_FEATURE_VFP3)) {
@@ -738,8 +737,9 @@ static void switch_v7m_sp(CPUARMState *env, int process) {
         env->v7m.other_sp = RR_cpu(env,regs[13]);
         WR_cpu(env,regs[13],tmp);
         env->v7m.current_sp = process;
+        HPRINTF(" switch sp tmp = 0x%x, current_sp = 0x%x, other_sp = 0x%x\n", tmp, env->v7m.current_sp, env->v7m.other_sp);
     } else {
-        HPRINTF(" already in handle mode current_sp = 0x%x, other_sp = 0x%x", env->v7m.current_sp, env->v7m.other_sp);
+        HPRINTF(" already in handle mode current_sp = 0x%x, other_sp = 0x%x\n", env->v7m.current_sp, env->v7m.other_sp);
     }
 }
 
@@ -760,13 +760,17 @@ static void do_v7m_exception_exit(CPUARMState *env) {
     WR_cpu(env,regs[3],v7m_pop(env));
     WR_cpu(env,regs[12],v7m_pop(env));
     WR_cpu(env,regs[14],v7m_pop(env));
-    HPRINTF(" interrupt exit r13 = 0x%x r15 = 0x%x\n", env->regs[13], env->regs[15]);
     env->regs[15] = v7m_pop(env);
     xpsr = v7m_pop(env);
     xpsr_write(env, xpsr, 0xfffffdff);
     /* Undo stack alignment.  */
     if (xpsr & 0x200)
         WR_cpu(env,regs[13],(RR_cpu(env,regs[13]) | 4));
+
+    HPRINTF(" interrupt exit r13 = 0x%x r15 = 0x%x\n", env->regs[13], env->regs[15]);
+    HPRINTF(" R3=0x%x R4=0x%x R5=0x%x R6=0x%x R7=0x%x R8=0x%x R9=0x%x R10=0x%x R11=0x%x R12=0x%x R2=0x%x R1=0x%x R0=0x%x\n",
+                env->regs[3], env->regs[4],  env->regs[5], env->regs[6], env->regs[7],  env->regs[8],
+                env->regs[9],  env->regs[10], env->regs[11], env->regs[12], env->regs[2], env->regs[1],  env->regs[0]);
     /* ??? The exception return type specifies Thread/Handler mode.  However
        this is also implied by the xPSR value. Not sure what to do
        if there is a mismatch.  */
@@ -827,6 +831,11 @@ void do_interrupt_v7m(CPUARMState *env) {
             return; /* Never happens.  Keep compiler happy.  */
     }
 
+    HPRINTF(" interrupt r13 = 0x%x r15 = 0x%x\n", env->regs[13], env->regs[15]);
+    HPRINTF(" R3=0x%x R4=0x%x R5=0x%x R6=0x%x R7=0x%x R8=0x%x R9=0x%x R10=0x%x R11=0x%x R12=0x%x R2=0x%x R1=0x%x R0=0x%x\n",
+                env->regs[3], env->regs[4],  env->regs[5], env->regs[6], env->regs[7],  env->regs[8],
+                env->regs[9],  env->regs[10], env->regs[11], env->regs[12], env->regs[2], env->regs[1],  env->regs[0]);
+
     /* Align stack pointer.  */
     /* ??? Should only do this if Configuration Control Register
        STACKALIGN bit is set.  */
@@ -837,7 +846,6 @@ void do_interrupt_v7m(CPUARMState *env) {
 
     v7m_push(env, xpsr);
     v7m_push(env, env->regs[15]);
-    HPRINTF(" interrupt r13 = 0x%x r15 = 0x%x\n", env->regs[13], env->regs[15]);
 	v7m_push(env, RR_cpu(env,regs[14]));
     v7m_push(env, RR_cpu(env,regs[12]));
     v7m_push(env, RR_cpu(env,regs[3]));

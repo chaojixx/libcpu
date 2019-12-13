@@ -179,7 +179,6 @@ static void cpu_handle_debug_exception(CPUArchState *env) {
 /* main execution loop */
 
 volatile sig_atomic_t exit_request;
-
 static uintptr_t fetch_and_run_tb(uintptr_t prev_tb, CPUArchState *env) {
     uint8_t *tc_ptr;
     uintptr_t next_tb;
@@ -187,7 +186,7 @@ static uintptr_t fetch_and_run_tb(uintptr_t prev_tb, CPUArchState *env) {
     DPRINTF("   fetch_and_run_tb %lx fl=%lx riw=%d\n", (uint64_t) env->eip, (uint64_t) env->mflags,
             env->kvm_request_interrupt_window);
 #elif defined(TARGET_ARM)
-    DPRINTF("   fetch_and_run_tb r15=0x%x cpsr=0x%x \n", (uint32_t) env->regs[15], env->uncached_cpsr);
+    DPRINTF("   fetch_and_run_tb r15=0x%x r13=0x%x \n", (uint32_t) env->regs[15], env->regs[13]);
 #else
 #error Unsupported target architecture
 #endif
@@ -231,7 +230,6 @@ static uintptr_t fetch_and_run_tb(uintptr_t prev_tb, CPUArchState *env) {
     }
 
     tc_ptr = tb->tc_ptr;
-    DPRINTF("Trace 0x%08lx, tb pc =0x%x \n", (long) tb->tc_ptr, tb->pc);
 #ifdef ENABLE_PRECISE_EXCEPTION_DEBUGGING
     assert(env->eip == env->precise_eip);
 #endif
@@ -244,7 +242,6 @@ static uintptr_t fetch_and_run_tb(uintptr_t prev_tb, CPUArchState *env) {
         **g_sqi.mode.running_exception_emulation_code = 0;
         next_tb = tcg_libcpu_tb_exec(env, tc_ptr);
     } else {
-        DPRINTF(" symbolic execution loop running \n");
         next_tb = g_sqi.exec.tb_exec(env, tb);
     }
     env->se_current_tb = NULL;
