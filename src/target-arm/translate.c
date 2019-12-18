@@ -10096,6 +10096,7 @@ static void disas_thumb_insn(CPUARMState *env, DisasContext *s) {
                                     count++;
                             }
                             val = ldl_phys(RR_cpu(env,regs[13]) + count * 4);
+                            TPRINTF("jump pc from sp = 0x%x val = 0x%x\n", RR_cpu(env,regs[13]), val);
                             // if pop pc is EXC_RETURN invode interrupt exit.
                             if (val >= 0xfffffff0) {
                                 gen_exception(EXCP_EXCEPTION_EXIT);

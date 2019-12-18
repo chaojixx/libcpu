@@ -106,8 +106,8 @@ static TranslationBlock *tb_find_slow(CPUArchState *env, target_ulong pc, target
     }
 not_found:
     /* if no translated code available, then translate it now */
-    DPRINTF("   if no translated code available, then translate it now pc=0x%x, cs_base=0x%x, flags= 0x%lx\n", pc,
-            cs_base, flags);
+    DPRINTF("   if no translated code available, then translate it now pc=0x%x, sp=0x%x, flags= 0x%lx\n", pc,
+            RR_cpu(env,regs[13]), flags);
     tb = tb_gen_code(env, pc, cs_base, flags, 0);
     ++g_cpu_stats.tb_regens;
 
@@ -136,7 +136,7 @@ static inline TranslationBlock *tb_find_fast(CPUArchState *env) {
 #ifdef CONFIG_SYMBEX
     if (tb_invalidate_before_fetch) {
         tb_invalidate_before_fetch = 0;
-        DPRINTF("tb will flush pc = 0x%x\n", env->regs[15]);
+        DPRINTF("tb will flush pc = 0x%x sp = 0x%x\n", env->regs[15], RR_cpu(env,regs[13]));
         tb_flush(env);
     }
 #endif
@@ -186,7 +186,7 @@ static uintptr_t fetch_and_run_tb(uintptr_t prev_tb, CPUArchState *env) {
     DPRINTF("   fetch_and_run_tb %lx fl=%lx riw=%d\n", (uint64_t) env->eip, (uint64_t) env->mflags,
             env->kvm_request_interrupt_window);
 #elif defined(TARGET_ARM)
-    DPRINTF("   fetch_and_run_tb r15=0x%x r13=0x%x \n", (uint32_t) env->regs[15], env->regs[13]);
+    DPRINTF("   fetch_and_run_tb r15=0x%x r13=0x%x \n", (uint32_t) env->regs[15], RR_cpu(env,regs[13]));
 #else
 #error Unsupported target architecture
 #endif

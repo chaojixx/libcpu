@@ -113,6 +113,7 @@ const MemoryDesc *mem_desc_find(uint64_t guest_phys_addr) {
         }
     }
 
+    printf("why not abort 0x%lx\n", guest_phys_addr);
     return NULL;
 }
 
