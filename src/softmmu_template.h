@@ -469,6 +469,7 @@ void glue(glue(io_write_chk, SUFFIX), MMUSUFFIX)(CPUArchState *env, target_phys_
 
     SE_SET_MEM_IO_VADDR(env, addr, 0);
     env->mem_io_pc = (uintptr_t) retaddr;
+
 #if SHIFT <= 2
     if (se_ismemfunc(ops, 1)) {
         uintptr_t pa = se_notdirty_mem_write(physaddr, 1 << SHIFT);
@@ -489,8 +490,10 @@ void glue(glue(io_write_chk, SUFFIX), MMUSUFFIX)(CPUArchState *env, target_phys_
 #endif
 #endif /* SHIFT > 2 */
 
-    // By default, call the original io_write function, which is external
-    glue(glue(io_write, SUFFIX), MMUSUFFIX)(env, origaddr, val, addr, retaddr);
+    if (likely(!g_sqi.mem.is_mmio_symbolic(addr, DATA_SIZE))) {
+        // By default, call the original io_write function, which is external
+        glue(glue(io_write, SUFFIX), MMUSUFFIX)(env, origaddr, val, addr, retaddr);
+    }
 
 end:
     tcg_llvm_trace_mmio_access(addr, val, DATA_SIZE, 1);
